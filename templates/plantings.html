@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="mb-0">รอบปลูก / วันขุด / คาดการณ์ผลผลิต</h3>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-dark" href="/export/harvest.csv" onclick="alert('ไฟล์ CSV จะถูกส่งเป็น JSON (csv) เพื่อให้คุณพี copy ได้ง่าย ถ้าต้องการเป็นดาวน์โหลดไฟล์จริง บอกผมได้ เดี๋ยวปรับให้)');">Export CSV</a>
+    <a class="btn btn-primary" href="/plantings/new">+ เพิ่มรอบปลูก</a>
+  </div>
+</div>
+
+<form method="get" class="mb-3">
+  <input type="text" id="month_picker" name="month" value="{{ month }}">
+
+  <button type="submit">ดูเดือนนี้</button>
+</form>
+
+
+<form class="row g-2 mb-3" method="get">
+  <div class="col-md-8">
+    <input class="form-control" name="q" value="{{ q }}" placeholder="ค้นหา: รหัส/ชื่อลูกสวน/ชื่อแปลง/สายพันธุ์/สถานะ">
+  </div>
+  <div class="col-md-4">
+    <button class="btn btn-dark w-100">ค้นหา</button>
+  </div>
+</form>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-striped mb-0">
+      <thead class="table-dark">
+        <tr>
+          <th>ลูกสวน</th>
+          <th>แปลง</th>
+          <th>พื้นที่</th>
+          <th>สายพันธุ์</th>
+          <th>วันปลูก</th>
+          <th>วันขุด (คาดการณ์)</th>
+          <th>เดือนขุด</th>
+          <th>ผลผลิตคาดการณ์ (ตัน)</th>
+          <th>สถานะ</th>
+          <th></th>
+        </tr>
+      </thead>
+
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/th.js"></script>
+
+<script>
+flatpickr("#month_picker", {
+    locale: "th",
+    plugins: [
+        new monthSelectPlugin({
+            shorthand: false,
+            dateFormat: "Y-m",
+            altFormat: "F Y"
+        })
+    ]
+});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/plugins/monthSelect/index.js"></script>
+
+
+      <tbody>
+      {% for r in rows %}
+        <tr>
+          <td>
+            <div class="fw-bold">{{ r.farmer.code if r.farmer else '' }}</div>
+            <div class="text-muted small">{{ r.farmer.name if r.farmer else '' }}</div>
+          </td>
+          <td class="fw-bold">{{ r.plot.plot_name if r.plot else '' }}</td>
+          <td>{{ "%.2f"|format(r.plot.area_rai if r.plot else 0) }}</td>
+          <td>{{ r.pl.variety }}</td>
+          <td>{{ r.pl.plant_date }}</td>
+          <td class="fw-bold">{{ r.harvest_date }}</td>
+          <td>{{ r.harvest_month }}</td>
+          <td class="fw-bold">{{ r.expected_tons }}</td>
+          <td>{{ r.pl.status }}</td>
+          <td class="text-end">
+            <a class="btn btn-sm btn-outline-secondary" href="/plantings/{{ r.pl.id }}/edit">แก้ไข</a>
+            <form class="d-inline" method="post" action="/plantings/{{ r.pl.id }}/delete" onsubmit="return confirm('ลบรอบปลูกนี้?');">
+              <button class="btn btn-sm btn-outline-danger">ลบ</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="mb-0">Dashboard</h3>
+  <div class="text-muted">ผู้ใช้: {{ user }}</div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card shadow-sm"><div class="card-body">
+      <div class="text-muted">จำนวนลูกสวน</div>
+      <div class="fs-3 fw-bold">{{ kpi.farmers }}</div>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card shadow-sm"><div class="card-body">
+      <div class="text-muted">จำนวนแปลง</div>
+      <div class="fs-3 fw-bold">{{ kpi.plots }}</div>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card shadow-sm"><div class="card-body">
+      <div class="text-muted">จำนวนรอบปลูก</div>
+      <div class="fs-3 fw-bold">{{ kpi.plantings }}</div>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card shadow-sm"><div class="card-body">
+      <div class="text-muted">ผลผลิตคาดการณ์ (เดือนใกล้สุด)</div>
+      <div class="fs-3 fw-bold">{{ kpi.next_month_tons }} ตัน</div>
+    </div></div>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <h5 class="mb-3">กราฟผลผลิตคาดการณ์รายเดือน (ตัน)</h5>
+    <canvas id="harvestChart" height="90"></canvas>
+  </div>
+</div>
+
+<script>
+  window.__HARVEST_SERIES__ = {{ series | tojson }};
+</script>
+{% endblock %}

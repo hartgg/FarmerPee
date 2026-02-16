@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-3">{{ "เพิ่มลูกสวน" if mode=="new" else "แก้ไขลูกสวน" }}</h3>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <form method="post">
+      <div class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label">รหัสลูกสวน (เช่น RD001)</label>
+          <input class="form-control" name="code" value="{{ row.code if row else '' }}" required>
+        </div>
+        <div class="col-md-5">
+          <label class="form-label">ชื่อ-สกุล</label>
+          <input class="form-control" name="name" value="{{ row.name if row else '' }}" required>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">เบอร์โทร</label>
+          <input class="form-control" name="phone" value="{{ row.phone if row else '' }}" required>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Line ID</label>
+          <input class="form-control" name="line_id" value="{{ row.line_id if row else '' }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">จังหวัด</label>
+          <input class="form-control" name="province" value="{{ row.province if row else '' }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">อำเภอ</label>
+          <input class="form-control" name="district" value="{{ row.district if row else '' }}">
+        </div>
+
+        <div class="col-12">
+          <label class="form-label">ที่อยู่</label>
+          <input class="form-control" name="address" value="{{ row.address if row else '' }}">
+        </div>
+        <div class="col-12">
+          <label class="form-label">หมายเหตุ</label>
+          <textarea class="form-control" name="notes" rows="3">{{ row.notes if row else '' }}</textarea>
+        </div>
+      </div>
+
+      <div class="mt-3 d-flex gap-2">
+        <button class="btn btn-primary">บันทึก</button>
+        <a class="btn btn-outline-secondary" href="/farmers">ยกเลิก</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

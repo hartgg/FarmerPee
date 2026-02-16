@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="mb-0">ลูกสวน</h3>
+  <a class="btn btn-primary" href="/farmers/new">+ เพิ่มลูกสวน</a>
+</div>
+
+<form class="row g-2 mb-3" method="get">
+  <div class="col-md-8">
+    <input class="form-control" name="q" value="{{ q }}" placeholder="ค้นหา: ชื่อ / เบอร์ / รหัส / จังหวัด">
+  </div>
+  <div class="col-md-4">
+    <button class="btn btn-dark w-100">ค้นหา</button>
+  </div>
+</form>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-striped mb-0">
+      <thead class="table-dark">
+        <tr>
+          <th>รหัส</th><th>ชื่อ</th><th>เบอร์</th><th>ไลน์</th><th>จังหวัด</th><th>อำเภอ</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for r in rows %}
+        <tr>
+          <td class="fw-bold">{{ r.code }}</td>
+          <td>{{ r.name }}</td>
+          <td>{{ r.phone }}</td>
+          <td>{{ r.line_id }}</td>
+          <td>{{ r.province }}</td>
+          <td>{{ r.district }}</td>
+          <td class="text-end">
+            <a class="btn btn-sm btn-outline-secondary" href="/farmers/{{ r.id }}/edit">แก้ไข</a>
+            <form class="d-inline" method="post" action="/farmers/{{ r.id }}/delete" onsubmit="return confirm('ลบลูกสวนนี้?');">
+              <button class="btn btn-sm btn-outline-danger">ลบ</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
