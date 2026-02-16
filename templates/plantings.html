@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h3 class="mb-0">รอบปลูก / วันขุด / คาดการณ์ผลผลิต</h3>
   <div class="d-flex gap-2">
@@ -25,6 +26,17 @@
 </form>
 
 <div class="card shadow-sm">
+
+    <form method="get" class="row g-3 mb-3">
+    <div class="col-md-4">
+      <input type="month" class="form-control" name="month" value="{{ month }}">
+    </div>
+    <div class="col-md-2">
+      <button class="btn btn-dark w-100">ค้นหาเดือน</button>
+    </div>
+  </form>
+  <h4>ผลผลิตรวมเดือนนี้: {{ total_tons }} ตัน</h4>
+  
   <div class="table-responsive">
     <table class="table table-striped mb-0">
       <thead class="table-dark">
