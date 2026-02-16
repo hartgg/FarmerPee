@@ -19,12 +19,10 @@ APP_NAME = "RaiDaeng FarmOS"
 # DATABASE (รองรับออนไลน์)
 # -----------------------------
 DB_URL = os.getenv("DATABASE_URL") or os.getenv("FARMOS_DB", "sqlite:///farm.db")
-
 connect_args = {"check_same_thread": False} if DB_URL.startswith("sqlite") else {}
 engine = create_engine(DB_URL, connect_args=connect_args)
 
 pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
-
 
 # -----------------------------
 # MODELS
@@ -34,23 +32,23 @@ class User(SQLModel, table=True):
     username: str = Field(index=True, unique=True)
     password_hash: str
     role: str = Field(default="farmer")  # owner / farmer
-    full_name: Optional[str] = ""
-    phone: Optional[str] = ""
+    full_name: str
+    phone: str
 
 
 class Farmer(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    user_id: Optional[int] = Field(default=None, foreign_key="user.id")
+    user_id: int = Field(foreign_key="user.id", index=True)
     code: str = Field(index=True, unique=True)
-    name: str = Field(index=True)
-    phone: str = Field(index=True)
+    name: str
+    phone: str
 
 
 class Plot(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     farmer_id: int = Field(foreign_key="farmer.id", index=True)
     plot_name: str
-    area_rai: float = 0.0
+    area_rai: float
 
 
 class Planting(SQLModel, table=True):
@@ -85,6 +83,7 @@ def create_db():
                     password_hash=pwd_context.hash("admin1234"),
                     role="owner",
                     full_name="Owner",
+                    phone="0000000000",
                 )
             )
             session.commit()
@@ -102,10 +101,10 @@ def get_session():
 # AUTH
 # -----------------------------
 def require_user(request: Request, session: Session = Depends(get_session)) -> User:
-    username = request.cookies.get("farmos_user")
-    if not username:
+    user_id = request.cookies.get("farmos_user")
+    if not user_id:
         raise PermissionError
-    user = session.exec(select(User).where(User.username == username)).first()
+    user = session.get(User, int(user_id))
     if not user:
         raise PermissionError
     return user
@@ -125,8 +124,8 @@ def register_page(request: Request):
 def register(
     username: str = Form(...),
     password: str = Form(...),
-    full_name: str = Form(""),
-    phone: str = Form(""),
+    full_name: str = Form(...),
+    phone: str = Form(...),
     session: Session = Depends(get_session),
 ):
     user = User(
@@ -138,6 +137,17 @@ def register(
     )
     session.add(user)
     session.commit()
+    session.refresh(user)
+
+    farmer = Farmer(
+        user_id=user.id,
+        code=f"F{user.id:04d}",
+        name=full_name,
+        phone=phone,
+    )
+    session.add(farmer)
+    session.commit()
+
     return RedirectResponse("/login", status_code=303)
 
 
@@ -153,7 +163,7 @@ def login(username: str = Form(...), password: str = Form(...), session: Session
         return RedirectResponse("/login?err=1", status_code=303)
 
     resp = RedirectResponse("/", status_code=303)
-    resp.set_cookie("farmos_user", username, httponly=True)
+    resp.set_cookie("farmos_user", str(user.id), httponly=True)
     return resp
 
 
@@ -162,14 +172,6 @@ def logout():
     resp = RedirectResponse("/login", status_code=303)
     resp.delete_cookie("farmos_user")
     return resp
-
-
-# -----------------------------
-# PROFILE
-# -----------------------------
-@app.get("/profile", response_class=HTMLResponse)
-def profile(request: Request, user: User = Depends(require_user)):
-    return templates.TemplateResponse("profile.html", {"request": request, "user": user})
 
 
 # -----------------------------
@@ -189,107 +191,57 @@ def dashboard(request: Request, user: User = Depends(require_user), session: Ses
 
 
 # -----------------------------
-# EDIT / DELETE PLOT
+# PLANTINGS (Filter เดือน + รวมตัน)
 # -----------------------------
-@app.get("/plots/{plot_id}/edit", response_class=HTMLResponse)
-def edit_plot_page(plot_id: int, request: Request,
-                   user: User = Depends(require_user),
-                   session: Session = Depends(get_session)):
+def month_key(d: date):
+    return f"{d.year:04d}-{d.month:02d}"
 
-    plot = session.get(Plot, plot_id)
-    farmer = session.get(Farmer, plot.farmer_id)
 
-    if user.role == "farmer" and farmer.user_id != user.id:
-        raise PermissionError
+@app.get("/plantings", response_class=HTMLResponse)
+def plantings_page(
+    request: Request,
+    month: str = "",
+    user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+):
+    plantings = session.exec(select(Planting)).all()
+    plots = session.exec(select(Plot)).all()
+    farmers = session.exec(select(Farmer)).all()
+
+    plot_map = {p.id: p for p in plots}
+    farmer_map = {f.id: f for f in farmers}
+
+    rows = []
+    for pl in plantings:
+        plot = plot_map.get(pl.plot_id)
+        farmer = farmer_map.get(plot.farmer_id) if plot else None
+
+        if user.role == "farmer":
+            if not farmer or farmer.user_id != user.id:
+                continue
+
+        tons = (plot.area_rai if plot else 0) * pl.yield_ton_per_rai
+
+        rows.append({
+            "pl": pl,
+            "farmer": farmer,
+            "plot": plot,
+            "harvest_month": month_key(pl.harvest_date),
+            "expected_tons": round(tons, 3)
+        })
+
+    if month:
+        rows = [r for r in rows if r["harvest_month"] == month]
+
+    total_tons = round(sum(r["expected_tons"] for r in rows), 3)
 
     return templates.TemplateResponse(
-        "plot_form.html",
-        {"request": request, "plot": plot, "edit": True},
+        "plantings.html",
+        {
+            "request": request,
+            "user": user,
+            "rows": rows,
+            "month": month,
+            "total_tons": total_tons,
+        },
     )
-
-
-@app.post("/plots/{plot_id}/edit")
-def edit_plot(plot_id: int,
-              plot_name: str = Form(...),
-              area_rai: float = Form(...),
-              user: User = Depends(require_user),
-              session: Session = Depends(get_session)):
-
-    plot = session.get(Plot, plot_id)
-    farmer = session.get(Farmer, plot.farmer_id)
-
-    if user.role == "farmer" and farmer.user_id != user.id:
-        raise PermissionError
-
-    plot.plot_name = plot_name
-    plot.area_rai = area_rai
-    session.add(plot)
-    session.commit()
-
-    return RedirectResponse("/", status_code=303)
-
-
-@app.get("/plots/{plot_id}/delete")
-def delete_plot(plot_id: int,
-                user: User = Depends(require_user),
-                session: Session = Depends(get_session)):
-
-    plot = session.get(Plot, plot_id)
-    farmer = session.get(Farmer, plot.farmer_id)
-
-    if user.role == "farmer" and farmer.user_id != user.id:
-        raise PermissionError
-
-    session.delete(plot)
-    session.commit()
-
-    return RedirectResponse("/", status_code=303)
-
-
-# -----------------------------
-# EDIT / DELETE PLANTING
-# -----------------------------
-@app.get("/plantings/{planting_id}/edit", response_class=HTMLResponse)
-def edit_planting_page(planting_id: int,
-                       request: Request,
-                       user: User = Depends(require_user),
-                       session: Session = Depends(get_session)):
-
-    pl = session.get(Planting, planting_id)
-    plot = session.get(Plot, pl.plot_id)
-    farmer = session.get(Farmer, plot.farmer_id)
-
-    if user.role == "farmer" and farmer.user_id != user.id:
-        raise PermissionError
-
-    return templates.TemplateResponse(
-        "planting_form.html",
-        {"request": request, "planting": pl, "edit": True},
-    )
-
-
-@app.post("/plantings/{planting_id}/edit")
-def edit_planting(planting_id: int,
-                  plant_date: date = Form(...),
-                  days_to_harvest: int = Form(...),
-                  yield_ton_per_rai: float = Form(...),
-                  status: str = Form(...),
-                  user: User = Depends(require_user),
-                  session: Session = Depends(get_session)):
-
-    pl = session.get(Planting, planting_id)
-    plot = session.get(Plot, pl.plot_id)
-    farmer = session.get(Farmer, plot.farmer_id)
-
-    if user.role == "farmer" and farmer.user_id != user.id:
-        raise PermissionError
-
-    pl.plant_date = plant_date
-    pl.days_to_harvest = days_to_harvest
-    pl.yield_ton_per_rai = yield_ton_per_rai
-    pl.status = status
-
-    session.add(pl)
-    session.commit()
-
-    return RedirectResponse("/plantings", status_code=303)
