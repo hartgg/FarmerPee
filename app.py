@@ -4,7 +4,7 @@ import os
 from datetime import date, timedelta
 from typing import Optional
 
-from fastapi import FastAPI, Request, Form, Depends
+from fastapi import FastAPI, Request, Form, Depends, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -16,7 +16,7 @@ from sqlmodel import SQLModel, Field, Session, create_engine, select
 APP_NAME = "RaiDaeng FarmOS"
 
 # -----------------------------
-# DATABASE (รองรับออนไลน์)
+# DATABASE
 # -----------------------------
 DB_URL = os.getenv("DATABASE_URL") or os.getenv("FARMOS_DB", "sqlite:///farm.db")
 connect_args = {"check_same_thread": False} if DB_URL.startswith("sqlite") else {}
@@ -25,15 +25,22 @@ engine = create_engine(DB_URL, connect_args=connect_args)
 pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
 
 # -----------------------------
+# UPLOAD FOLDER
+# -----------------------------
+UPLOAD_DIR = "static/uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+# -----------------------------
 # MODELS
 # -----------------------------
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     username: str = Field(index=True, unique=True)
     password_hash: str
-    role: str = Field(default="farmer")  # owner / farmer
+    role: str = Field(default="farmer")
     full_name: str
     phone: str
+    image: Optional[str] = None   # ✅ เพิ่มรูปโปรไฟล์
 
 
 class Farmer(SQLModel, table=True):
@@ -115,6 +122,9 @@ async def perm_handler(request: Request, exc: PermissionError):
     return RedirectResponse("/login", status_code=303)
 
 
+# -----------------------------
+# REGISTER (รองรับรูป)
+# -----------------------------
 @app.get("/register", response_class=HTMLResponse)
 def register_page(request: Request):
     return templates.TemplateResponse("register.html", {"request": request})
@@ -126,14 +136,28 @@ def register(
     password: str = Form(...),
     full_name: str = Form(...),
     phone: str = Form(...),
+    image: UploadFile = File(None),   # ✅ รับรูป
     session: Session = Depends(get_session),
 ):
+    # เช็ค username ซ้ำ
+    exists = session.exec(select(User).where(User.username == username)).first()
+    if exists:
+        return RedirectResponse("/register?err=1", status_code=303)
+
+    filename = None
+    if image:
+        filename = image.filename
+        filepath = os.path.join(UPLOAD_DIR, filename)
+        with open(filepath, "wb") as buffer:
+            buffer.write(image.file.read())
+
     user = User(
         username=username,
         password_hash=pwd_context.hash(password),
         role="farmer",
         full_name=full_name,
         phone=phone,
+        image=filename,  # ✅ บันทึกรูป
     )
     session.add(user)
     session.commit()
@@ -151,6 +175,9 @@ def register(
     return RedirectResponse("/login", status_code=303)
 
 
+# -----------------------------
+# LOGIN
+# -----------------------------
 @app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
@@ -175,73 +202,11 @@ def logout():
 
 
 # -----------------------------
-# DASHBOARD
+# PROFILE PAGE
 # -----------------------------
-@app.get("/", response_class=HTMLResponse)
-def dashboard(request: Request, user: User = Depends(require_user), session: Session = Depends(get_session)):
-    farmers = session.exec(select(Farmer)).all()
-
-    if user.role == "farmer":
-        farmers = [f for f in farmers if f.user_id == user.id]
-
+@app.get("/profile", response_class=HTMLResponse)
+def profile_page(request: Request, user: User = Depends(require_user)):
     return templates.TemplateResponse(
-        "dashboard.html",
-        {"request": request, "user": user, "farmers": farmers},
-    )
-
-
-# -----------------------------
-# PLANTINGS (Filter เดือน + รวมตัน)
-# -----------------------------
-def month_key(d: date):
-    return f"{d.year:04d}-{d.month:02d}"
-
-
-@app.get("/plantings", response_class=HTMLResponse)
-def plantings_page(
-    request: Request,
-    month: str = "",
-    user: User = Depends(require_user),
-    session: Session = Depends(get_session),
-):
-    plantings = session.exec(select(Planting)).all()
-    plots = session.exec(select(Plot)).all()
-    farmers = session.exec(select(Farmer)).all()
-
-    plot_map = {p.id: p for p in plots}
-    farmer_map = {f.id: f for f in farmers}
-
-    rows = []
-    for pl in plantings:
-        plot = plot_map.get(pl.plot_id)
-        farmer = farmer_map.get(plot.farmer_id) if plot else None
-
-        if user.role == "farmer":
-            if not farmer or farmer.user_id != user.id:
-                continue
-
-        tons = (plot.area_rai if plot else 0) * pl.yield_ton_per_rai
-
-        rows.append({
-            "pl": pl,
-            "farmer": farmer,
-            "plot": plot,
-            "harvest_month": month_key(pl.harvest_date),
-            "expected_tons": round(tons, 3)
-        })
-
-    if month:
-        rows = [r for r in rows if r["harvest_month"] == month]
-
-    total_tons = round(sum(r["expected_tons"] for r in rows), 3)
-
-    return templates.TemplateResponse(
-        "plantings.html",
-        {
-            "request": request,
-            "user": user,
-            "rows": rows,
-            "month": month,
-            "total_tons": total_tons,
-        },
+        "profile.html",
+        {"request": request, "user": user},
     )

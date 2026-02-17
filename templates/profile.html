@@ -1,10 +1,21 @@
 {% extends "base.html" %}
 {% block content %}
 <h3>โปรไฟล์ผู้ใช้</h3>
+
 <div class="card p-3 mb-3">
+
+  {% if user.image %}
+    <div class="mb-3">
+      <img src="/static/uploads/{{ user.image }}" 
+           width="200"
+           class="img-thumbnail">
+    </div>
+  {% endif %}
+
   <p><strong>Username:</strong> {{ user.username }}</p>
   <p><strong>ชื่อ:</strong> {{ user.full_name }}</p>
   <p><strong>เบอร์โทร:</strong> {{ user.phone }}</p>
   <p><strong>สิทธิ์:</strong> {{ user.role }}</p>
+
 </div>
 {% endblock %}

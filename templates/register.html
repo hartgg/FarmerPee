@@ -3,7 +3,9 @@
 <div class="card shadow-sm p-4">
   <h3 class="mb-3">สมัครสมาชิก</h3>
 
-  <form method="post">
+  <!-- สำคัญมาก ต้องมี enctype -->
+  <form method="post" enctype="multipart/form-data">
+
     <div class="mb-3">
       <label class="form-label">Username</label>
       <input class="form-control" name="username" required>
@@ -16,18 +18,24 @@
 
     <div class="mb-3">
       <label class="form-label">ชื่อ-นามสกุล</label>
-      <input class="form-control" name="full_name">
+      <input class="form-control" name="full_name" required>
     </div>
 
     <div class="mb-3">
       <label class="form-label">เบอร์โทร</label>
-      <input class="form-control" name="phone">
+      <input class="form-control" name="phone" required>
     </div>
 
-    <button class="btn btn-primary">สมัครสมาชิก</button>
+    <!-- เพิ่มอัปโหลดรูป -->
+    <div class="mb-3">
+      <label class="form-label">รูปโปรไฟล์ (ไม่บังคับ)</label>
+      <input class="form-control" type="file" name="image" accept="image/*">
+    </div>
+
+    <button class="btn btn-primary w-100">สมัครสมาชิก</button>
   </form>
 
-  <div class="mt-2">
+  <div class="mt-3 text-center">
     <a href="/login">กลับไปหน้าเข้าสู่ระบบ</a>
   </div>
 </div>
