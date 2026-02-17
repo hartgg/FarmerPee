@@ -22,7 +22,7 @@ DB_URL = os.getenv("DATABASE_URL") or os.getenv("FARMOS_DB", "sqlite:///farm.db"
 connect_args = {"check_same_thread": False} if DB_URL.startswith("sqlite") else {}
 engine = create_engine(DB_URL, connect_args=connect_args)
 
-pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 # -----------------------------
 # UPLOAD FOLDER
