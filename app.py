@@ -78,6 +78,9 @@ app = FastAPI(title=APP_NAME)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+@app.get("/")
+def root():
+    return RedirectResponse("/login", status_code=303)
 
 def create_db():
     SQLModel.metadata.create_all(engine)
