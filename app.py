@@ -219,3 +219,34 @@ def profile_page(request: Request, user: User = Depends(require_user)):
         "profile.html",
         {"request": request, "user": user},
     )
+
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard(request: Request, user: User = Depends(require_user)):
+    return templates.TemplateResponse(
+        "dashboard.html",
+        {"request": request, "user": user},
+    )
+
+@app.get("/farmers", response_class=HTMLResponse)
+def farmers_page(request: Request, user: User = Depends(require_user), session: Session = Depends(get_session)):
+    farmers = session.exec(select(Farmer)).all()
+    return templates.TemplateResponse(
+        "farmers.html",
+        {"request": request, "user": user, "farmers": farmers},
+    )
+
+@app.get("/plots", response_class=HTMLResponse)
+def plots_page(request: Request, user: User = Depends(require_user), session: Session = Depends(get_session)):
+    plots = session.exec(select(Plot)).all()
+    return templates.TemplateResponse(
+        "plots.html",
+        {"request": request, "user": user, "plots": plots},
+    )
+
+@app.get("/plantings", response_class=HTMLResponse)
+def plantings_page(request: Request, user: User = Depends(require_user), session: Session = Depends(get_session)):
+    plantings = session.exec(select(Planting)).all()
+    return templates.TemplateResponse(
+        "plantings.html",
+        {"request": request, "user": user, "plantings": plantings},
+    )
