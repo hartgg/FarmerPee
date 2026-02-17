@@ -3,5 +3,6 @@ uvicorn
 sqlmodel
 jinja2
 python-multipart
-passlib[bcrypt]
+passlib
 psycopg2-binary
+itsdangerous
