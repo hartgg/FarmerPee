@@ -42,7 +42,7 @@ class User(SQLModel, table=True):
     role: str = Field(default="farmer")
     full_name: str
     phone: str
-    image: Optional[str] = None   # ✅ เพิ่มรูปโปรไฟล์
+    image: Optional[str] = None
 
 
 class Farmer(SQLModel, table=True):
@@ -73,14 +73,18 @@ class Planting(SQLModel, table=True):
         return self.plant_date + timedelta(days=self.days_to_harvest)
 
 
-
-
 # -----------------------------
 # APP
 # -----------------------------
 app = FastAPI(title=APP_NAME)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+
+# ✅ ใช้ secret key เดียวแน่นอน
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("SECRET_KEY") or secrets.token_hex(32)
+)
 
 @app.get("/")
 def root():
@@ -91,7 +95,6 @@ def create_db():
     with Session(engine) as session:
         admin = session.exec(select(User).where(User.username == "admin")).first()
         if not admin:
-            print("CREATING DEFAULT ADMIN...")
             session.add(
                 User(
                     username="admin",
@@ -103,22 +106,11 @@ def create_db():
             )
             session.commit()
 
-
-
 create_db()
-
-# -----------------------------
-# SESSION (Login Keep Login)
-# -----------------------------
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=os.getenv("SECRET_KEY") or secrets.token_hex(32)
-)
 
 def get_session():
     with Session(engine) as session:
         yield session
-
 
 # -----------------------------
 # AUTH
@@ -132,19 +124,16 @@ def require_user(request: Request, session: Session = Depends(get_session)) -> U
         raise PermissionError
     return user
 
-
 @app.exception_handler(PermissionError)
 async def perm_handler(request: Request, exc: PermissionError):
     return RedirectResponse("/login", status_code=303)
 
-
 # -----------------------------
-# REGISTER (รองรับรูป)
+# REGISTER
 # -----------------------------
 @app.get("/register", response_class=HTMLResponse)
 def register_page(request: Request):
     return templates.TemplateResponse("register.html", {"request": request})
-
 
 @app.post("/register")
 def register(
@@ -152,10 +141,9 @@ def register(
     password: str = Form(...),
     full_name: str = Form(...),
     phone: str = Form(...),
-    image: UploadFile = File(None),   # ✅ รับรูป
+    image: UploadFile = File(None),
     session: Session = Depends(get_session),
 ):
-    # เช็ค username ซ้ำ
     exists = session.exec(select(User).where(User.username == username)).first()
     if exists:
         return RedirectResponse("/register?err=1", status_code=303)
@@ -173,7 +161,7 @@ def register(
         role="farmer",
         full_name=full_name,
         phone=phone,
-        image=filename,  # ✅ บันทึกรูป
+        image=filename,
     )
     session.add(user)
     session.commit()
@@ -190,8 +178,6 @@ def register(
 
     return RedirectResponse("/login", status_code=303)
 
-app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY"))
-
 # -----------------------------
 # LOGIN
 # -----------------------------
@@ -199,24 +185,30 @@ app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY"))
 def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
-
 @app.post("/login")
-def login(username: str = Form(...), password: str = Form(...), session: Session = Depends(get_session)):
+def login(
+    username: str = Form(...),
+    password: str = Form(...),
+    session: Session = Depends(get_session)
+):
     user = session.exec(select(User).where(User.username == username)).first()
     if not user or not pwd_context.verify(password, user.password_hash):
         return RedirectResponse("/login?err=1", status_code=303)
 
-    resp = RedirectResponse("/", status_code=303)
-    resp.set_cookie("farmos_user", str(user.id), httponly=True)
+    resp = RedirectResponse("/profile", status_code=303)
+    resp.set_cookie(
+        key="farmos_user",
+        value=str(user.id),
+        httponly=True,
+        samesite="lax"
+    )
     return resp
-
 
 @app.get("/logout")
 def logout():
     resp = RedirectResponse("/login", status_code=303)
     resp.delete_cookie("farmos_user")
     return resp
-
 
 # -----------------------------
 # PROFILE PAGE
