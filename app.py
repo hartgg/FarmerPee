@@ -12,6 +12,8 @@ from fastapi.templating import Jinja2Templates
 from passlib.context import CryptContext
 from sqlmodel import SQLModel, Field, Session, create_engine, select
 
+from starlette.middleware.sessions import SessionMiddleware
+import secrets
 
 APP_NAME = "RaiDaeng FarmOS"
 
@@ -71,6 +73,8 @@ class Planting(SQLModel, table=True):
         return self.plant_date + timedelta(days=self.days_to_harvest)
 
 
+
+
 # -----------------------------
 # APP
 # -----------------------------
@@ -87,6 +91,7 @@ def create_db():
     with Session(engine) as session:
         admin = session.exec(select(User).where(User.username == "admin")).first()
         if not admin:
+            print("CREATING DEFAULT ADMIN...")
             session.add(
                 User(
                     username="admin",
@@ -99,8 +104,16 @@ def create_db():
             session.commit()
 
 
+
 create_db()
 
+# -----------------------------
+# SESSION (Login Keep Login)
+# -----------------------------
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("SECRET_KEY") or secrets.token_hex(32)
+)
 
 def get_session():
     with Session(engine) as session:
@@ -177,6 +190,7 @@ def register(
 
     return RedirectResponse("/login", status_code=303)
 
+app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY"))
 
 # -----------------------------
 # LOGIN
